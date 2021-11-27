@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
-class BPlusTreeTest {
+public class BPlusTreeTest {
 
     private final int ENTRY_BOUND = 100;
 
@@ -77,6 +77,10 @@ class BPlusTreeTest {
         for (int i = 0; i < 100; ++i) {
             t.remove(i, i);
         }
+        this.reverseLoad(t);
+        for (int i = 99; i >= 0; --i) {
+            t.remove(i, i);
+        }
         for (int i = 0; i < ENTRY_BOUND; i += 2) {
             t.insert(i, i);
         }
@@ -119,4 +123,9 @@ class BPlusTreeTest {
         }
     }
 
+    private void reverseLoad(BPlusTree<Integer, Integer> bPlusTree) {
+        for (int i = ENTRY_BOUND - 1; i >= 0; --i) {
+            bPlusTree.insert(i, i);
+        }
+    }
 }
