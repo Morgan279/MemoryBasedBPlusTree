@@ -148,7 +148,7 @@ public class BPlusTree<K extends Comparable<K>, E> {
         public abstract void borrow(BPlusTreeNode neighbor, K parentEntry, boolean isLeft);
     }
 
-    public class BPlusTreeNonLeafNode extends BPlusTreeNode {
+    private class BPlusTreeNonLeafNode extends BPlusTreeNode {
 
         public List<BPlusTreeNode> children;
 
