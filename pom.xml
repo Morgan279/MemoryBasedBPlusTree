@@ -6,7 +6,7 @@
 
     <groupId>xyz.proadap.aliang</groupId>
     <artifactId>MemoryBasedBPlusTree</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
 
     <name>MemoryBasedBPlusTree</name>
     <description>an implementation of B+tree</description>
