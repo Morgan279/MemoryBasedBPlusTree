@@ -1,6 +1,10 @@
 # B+Tree
 
-An implementation of B+Tree  (a multiway search tree based on the memory, i.e., all data records are stored in the memory instead of the disk) . ![](https://img.shields.io/badge/license-Apache%202.0-green)![](https://img.shields.io/badge/coverage-100%25-brightgreen)![](https://img.shields.io/badge/maven%20central-v1.2.0-blue)![](https://img.shields.io/badge/java%20version-8-red)
+An implementation of B+Tree  (a multiway search tree based on the memory, i.e., all data records are stored in the memory instead of the disk) . 
+
+
+
+![](https://img.shields.io/badge/license-Apache%202.0-green)	![](https://img.shields.io/badge/coverage-100%25-brightgreen)	![](https://img.shields.io/badge/maven%20central-v1.2.0-blue)	 ![](https://img.shields.io/badge/java%20version-8-red)
 
 
 
