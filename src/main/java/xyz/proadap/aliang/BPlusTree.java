@@ -38,28 +38,6 @@ public class BPlusTree<K extends Comparable<K>, E> {
 
     }
 
-    public boolean remove(K entry, E value) {
-        if (root == null) {
-            return false;
-        }
-
-        RemoveResult removeResult = root.remove(entry, value);
-        if (!removeResult.isRemoved) {
-            return false;
-        }
-
-        if (root.entries.isEmpty()) {
-            if (root.getClass().equals(BPlusTreeLeafNode.class)) {
-                root = null;
-            } else {
-                root = ((BPlusTreeNonLeafNode) root).children.get(0);
-            }
-
-        }
-
-        return true;
-    }
-
     public List<E> query(K entry) {
         if (root == null) {
             return Collections.emptyList();
@@ -80,6 +58,44 @@ public class BPlusTree<K extends Comparable<K>, E> {
         }
 
         return root.update(entry, oldValue, newValue);
+    }
+
+    public boolean remove(K entry, E value) {
+        if (root == null) {
+            return false;
+        }
+
+        RemoveResult removeResult = root.remove(entry, value);
+        if (!removeResult.isRemoved) {
+            return false;
+        }
+
+        if (root.entries.isEmpty()) {
+            this.handleRootUnderflow();
+        }
+
+        return true;
+    }
+
+    public boolean remove(K entry) {
+        if (root == null) {
+            return false;
+        }
+
+        RemoveResult removeResult = root.remove(entry);
+        if (!removeResult.isRemoved) {
+            return false;
+        }
+
+        if (root.entries.isEmpty()) {
+            this.handleRootUnderflow();
+        }
+
+        return true;
+    }
+
+    private void handleRootUnderflow() {
+        root = root.getClass().equals(BPlusTreeLeafNode.class) ? null : ((BPlusTreeNonLeafNode) root).children.get(0);
     }
 
     @SafeVarargs
@@ -140,6 +156,8 @@ public class BPlusTree<K extends Comparable<K>, E> {
         public abstract BPlusTreeNode insert(K entry, E value);
 
         public abstract boolean update(K entry, E oldValue, E newValue);
+
+        public abstract RemoveResult remove(K entry);
 
         public abstract RemoveResult remove(K entry, E value);
 
@@ -203,6 +221,23 @@ public class BPlusTree<K extends Comparable<K>, E> {
         }
 
         @Override
+        public RemoveResult remove(K entry) {
+            int entryIndex = findEntryIndex(entry);
+            int childIndex = findChildIndex(entryIndex, entry);
+            BPlusTreeNode childNode = children.get(childIndex);
+            RemoveResult removeResult = childNode.remove(entry);
+            if (!removeResult.isRemoved) {
+                return removeResult;
+            }
+
+            if (removeResult.isUnderflow) {
+                this.handleUnderflow(childNode, childIndex, entryIndex);
+            }
+
+            return new RemoveResult(true, isUnderflow());
+        }
+
+        @Override
         public RemoveResult remove(K entry, E value) {
             int entryIndex = findEntryIndex(entry);
             int childIndex = findChildIndex(entryIndex, entry);
@@ -213,35 +248,7 @@ public class BPlusTree<K extends Comparable<K>, E> {
             }
 
             if (removeResult.isUnderflow) {
-                BPlusTreeNode neighbor;
-                if (childIndex > 0 && (neighbor = this.children.get(childIndex - 1)).entries.size() > UNDERFLOW_BOUND) {
-
-                    childNode.borrow(neighbor, this.entries.get(getLeafEntryParentIndex(entryIndex)), true);
-                    this.entries.set(getLeafEntryParentIndex(entryIndex), childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(childNode) : childNode.entries.get(0));
-
-                } else if (childIndex < this.children.size() - 1 && (neighbor = this.children.get(childIndex + 1)).entries.size() > UNDERFLOW_BOUND) {
-
-                    childNode.borrow(neighbor, this.entries.get(entryIndex), false);
-                    this.entries.set(entryIndex, childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(neighbor) : neighbor.entries.get(0));
-
-                } else {
-
-                    if (childIndex > 0) {
-                        // combine current child to left child
-                        neighbor = this.children.get(childIndex - 1);
-                        neighbor.combine(childNode, this.entries.get(getLeafEntryParentIndex(entryIndex)));
-                        this.children.remove(childIndex);
-
-                    } else {
-                        // combine right child to current child
-                        neighbor = this.children.get(childIndex + 1);
-                        childNode.combine(neighbor, this.entries.get(entryIndex));
-                        this.children.remove(childIndex + 1);
-                    }
-
-                    this.entries.remove(getLeafEntryParentIndex(entryIndex));
-
-                }
+                this.handleUnderflow(childNode, childIndex, entryIndex);
             }
 
             return new RemoveResult(true, isUnderflow());
@@ -278,7 +285,39 @@ public class BPlusTree<K extends Comparable<K>, E> {
             return findLeafEntry(((BPlusTreeNonLeafNode) cur).children.get(0));
         }
 
-        private int getLeafEntryParentIndex(int entryIndex) {
+        private void handleUnderflow(BPlusTreeNode childNode, int childIndex, int entryIndex) {
+            BPlusTreeNode neighbor;
+            if (childIndex > 0 && (neighbor = this.children.get(childIndex - 1)).entries.size() > UNDERFLOW_BOUND) {
+
+                childNode.borrow(neighbor, this.entries.get(reviseEntryIndex(entryIndex)), true);
+                this.entries.set(reviseEntryIndex(entryIndex), childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(childNode) : childNode.entries.get(0));
+
+            } else if (childIndex < this.children.size() - 1 && (neighbor = this.children.get(childIndex + 1)).entries.size() > UNDERFLOW_BOUND) {
+
+                childNode.borrow(neighbor, this.entries.get(entryIndex), false);
+                this.entries.set(entryIndex, childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(neighbor) : neighbor.entries.get(0));
+
+            } else {
+
+                if (childIndex > 0) {
+                    // combine current child to left child
+                    neighbor = this.children.get(childIndex - 1);
+                    neighbor.combine(childNode, this.entries.get(reviseEntryIndex(entryIndex)));
+                    this.children.remove(childIndex);
+
+                } else {
+                    // combine right child to current child
+                    neighbor = this.children.get(childIndex + 1);
+                    childNode.combine(neighbor, this.entries.get(entryIndex));
+                    this.children.remove(childIndex + 1);
+                }
+
+                this.entries.remove(reviseEntryIndex(entryIndex));
+
+            }
+        }
+
+        private int reviseEntryIndex(int entryIndex) {
             return Math.min(this.entries.size() - 1, entryIndex);
         }
 
@@ -369,6 +408,19 @@ public class BPlusTree<K extends Comparable<K>, E> {
             data.get(entryIndex).remove(oldValue);
             data.get(entryIndex).add(newValue);
             return true;
+        }
+
+        @Override
+        public RemoveResult remove(K entry) {
+            int entryIndex = getEqualEntryIndex(entry);
+            if (entryIndex == -1) {
+                return new RemoveResult(false, false);
+            }
+
+            this.entries.remove(entryIndex);
+            this.data.remove(entryIndex);
+
+            return new RemoveResult(true, isUnderflow());
         }
 
         @Override

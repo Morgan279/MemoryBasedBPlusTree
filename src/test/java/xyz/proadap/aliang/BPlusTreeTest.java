@@ -78,7 +78,7 @@ public class BPlusTreeTest {
             t.remove(i, i);
         }
         this.reverseLoad(t);
-        for (int i = 99; i >= 0; --i) {
+        for (int i = ENTRY_BOUND - 1; i >= 0; --i) {
             t.remove(i, i);
         }
         for (int i = 0; i < ENTRY_BOUND; i += 2) {
@@ -88,6 +88,17 @@ public class BPlusTreeTest {
         Assertions.assertTrue(t.remove(8, 8));
         for (int i = 30; i >= 0; i -= 2) {
             t.remove(i, i);
+        }
+    }
+
+    @Test
+    public void testRemoveInBatch() {
+        BPlusTree<Integer, Integer> t = new BPlusTree<>();
+        Assertions.assertFalse(t.remove(0));
+        this.reverseLoad(t);
+        Assertions.assertFalse(t.remove(ENTRY_BOUND));
+        for (int i = ENTRY_BOUND - 1; i >= 0; --i) {
+            Assertions.assertTrue(t.remove(i));
         }
     }
 
