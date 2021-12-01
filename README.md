@@ -1,6 +1,6 @@
 # B+Tree
 
-An implementation of B+Tree  (a multiway search tree based on the memory, i.e., all data records are stored in the memory instead of the disk) . 
+An implementation of B+Tree  (a multiway search tree based on the memory, i.e., all data records are stored in the memory instead of the disk). 
 
 
 
@@ -40,7 +40,7 @@ BPlusTree<Integer,String> bPlusTree = new BPlusTree<>(); //default order is 9
 
 ## Features
 
-#### insert
+### insert：
 
 ```java
 bPlusTree.insert(0, "data record 1");
@@ -52,7 +52,7 @@ bPlusTree.insert(3, "data record 5");
 
 
 
-#### query
+### query：
 
 ```java
 //query all data records under the entry 0
@@ -62,7 +62,7 @@ System.out.println(queryResult); //[data record 2, data record 1]
 
 
 
-#### range query
+### range query：
 
 ```java
 //query all data records under the entries [0,3)
@@ -72,7 +72,7 @@ System.out.println(queryResult); //[data record 2, data record 1, data record 3,
 
 
 
-#### update
+### update：
 
 ```java
 //return true if update successfully, false otherwise
@@ -82,7 +82,7 @@ System.out.println(bPlusTree.query(0)); //[data record 1, data record 12]
 
 
 
-#### remove
+### remove：
 
 ```java
 /**
@@ -102,7 +102,7 @@ System.out.println(bPlusTree.query(0)); //[data record 1]
 
 
 
-### License
+## License
 
 BPlusTree is under the Apache 2.0 license. See the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) file for details.
 
