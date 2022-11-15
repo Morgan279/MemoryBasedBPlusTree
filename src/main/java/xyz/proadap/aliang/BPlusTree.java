@@ -114,6 +114,9 @@ public class BPlusTree<K extends Comparable<K>, E> {
 
     @Override
     public String toString() {
+        if(root == null){
+            return "";
+        }
         return root.toString();
     }
 
@@ -133,20 +136,18 @@ public class BPlusTree<K extends Comparable<K>, E> {
             return KEY_UPPER_BOUND / 2;
         }
 
-        protected int findEntryIndex(K entry) {
+        protected int entryIndexUpperBound(K entry) {
             int l = 0;
-            int r = entries.size() - 1;
-            int index = entries.size();
-            while (l <= r) {
+            int r = entries.size();
+            while (l < r) {
                 int mid = l + ((r - l) >> 1);
-                if (entries.get(mid).compareTo(entry) >= 0) {
-                    index = mid;
-                    r = mid - 1;
-                } else {
+                if (entries.get(mid).compareTo(entry) <= 0) {
                     l = mid + 1;
+                } else {
+                    r = mid;
                 }
             }
-            return index;
+            return l;
         }
 
         public abstract List<E> rangeQuery(K startInclude, K endExclude);
@@ -178,26 +179,26 @@ public class BPlusTree<K extends Comparable<K>, E> {
 
         @Override
         public List<E> rangeQuery(K startInclude, K endExclude) {
-            return children.get(findChildIndex(findEntryIndex(startInclude), startInclude)).rangeQuery(startInclude, endExclude);
+            return children.get(entryIndexUpperBound(startInclude)).rangeQuery(startInclude, endExclude);
         }
 
         @Override
         public List<E> query(K entry) {
-            return children.get(findChildIndex(findEntryIndex(entry), entry)).query(entry);
+            return children.get(entryIndexUpperBound(entry)).query(entry);
         }
 
         @Override
         public boolean update(K entry, E oldValue, E newValue) {
-            return children.get(findChildIndex(findEntryIndex(entry), entry)).update(entry, oldValue, newValue);
+            return children.get(entryIndexUpperBound(entry)).update(entry, oldValue, newValue);
         }
 
         @Override
         public BPlusTreeNode insert(K entry, E value) {
-            BPlusTreeNode newChildNode = children.get(findChildIndex(findEntryIndex(entry), entry)).insert(entry, value);
+            BPlusTreeNode newChildNode = children.get(entryIndexUpperBound(entry)).insert(entry, value);
 
             if (newChildNode != null) {
                 K newEntry = findLeafEntry(newChildNode);
-                int newEntryIndex = findEntryIndex(newEntry);
+                int newEntryIndex = entryIndexUpperBound(newEntry);
                 if (isFull()) {
                     BPlusTreeNonLeafNode newNonLeafNode = split();
                     int medianIndex = getMedianIndex();
@@ -205,7 +206,7 @@ public class BPlusTree<K extends Comparable<K>, E> {
                         entries.add(newEntryIndex, newEntry);
                         children.add(newEntryIndex + 1, newChildNode);
                     } else {
-                        int rightIndex = newNonLeafNode.findEntryIndex(newEntry);
+                        int rightIndex = newEntryIndex - medianIndex;
                         newNonLeafNode.entries.add(rightIndex, newEntry);
                         newNonLeafNode.children.add(rightIndex, newChildNode);
                     }
@@ -222,8 +223,8 @@ public class BPlusTree<K extends Comparable<K>, E> {
 
         @Override
         public RemoveResult remove(K entry) {
-            int entryIndex = findEntryIndex(entry);
-            int childIndex = findChildIndex(entryIndex, entry);
+            int childIndex = entryIndexUpperBound(entry);
+            int entryIndex = Math.max(0, childIndex - 1);
             BPlusTreeNode childNode = children.get(childIndex);
             RemoveResult removeResult = childNode.remove(entry);
             if (!removeResult.isRemoved) {
@@ -239,8 +240,9 @@ public class BPlusTree<K extends Comparable<K>, E> {
 
         @Override
         public RemoveResult remove(K entry, E value) {
-            int entryIndex = findEntryIndex(entry);
-            int childIndex = findChildIndex(entryIndex, entry);
+            int childIndex = entryIndexUpperBound(entry);
+            int entryIndex = Math.max(0, childIndex - 1);
+
             BPlusTreeNode childNode = children.get(childIndex);
             RemoveResult removeResult = childNode.remove(entry, value);
             if (!removeResult.isRemoved) {
@@ -252,6 +254,55 @@ public class BPlusTree<K extends Comparable<K>, E> {
             }
 
             return new RemoveResult(true, isUnderflow());
+        }
+
+
+        private void handleUnderflow(BPlusTreeNode childNode, int childIndex, int entryIndex) {
+            BPlusTreeNode neighbor;
+            if (childIndex > 0 && (neighbor = this.children.get(childIndex - 1)).entries.size() > UNDERFLOW_BOUND) {
+
+                childNode.borrow(neighbor, this.entries.get(entryIndex), true);
+                K boundEntry = childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(childNode) : childNode.entries.get(0);
+                this.entries.set(entryIndex, boundEntry);
+
+            } else if (childIndex < this.children.size() - 1 && (neighbor = this.children.get(childIndex + 1)).entries.size() > UNDERFLOW_BOUND) {
+
+                int parentEntryIndex = childIndex == 0 ? 0 :Math.min(this.entries.size() - 1, entryIndex + 1);
+                childNode.borrow(neighbor, this.entries.get(parentEntryIndex), false);
+                this.entries.set(parentEntryIndex, childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(neighbor) : neighbor.entries.get(0));
+
+            } else {
+
+                if (childIndex > 0) {
+                    // combine current child to left child
+                    neighbor = this.children.get(childIndex - 1);
+                    neighbor.combine(childNode, this.entries.get(entryIndex));
+                    this.entries.remove(entryIndex);
+                    this.children.remove(childIndex);
+
+                } else {
+                    // combine right child to current child (child index = 0)
+                    neighbor = this.children.get(1);
+                    childNode.combine(neighbor, this.entries.get(0));
+                    this.entries.remove(0);
+                    this.children.remove(1);
+                }
+
+            }
+
+        }
+
+        private BPlusTreeNonLeafNode split() {
+            int medianIndex = getMedianIndex();
+            List<K> allEntries = entries;
+            List<BPlusTreeNode> allChildren = children;
+
+            this.entries = new ArrayList<>(allEntries.subList(0, medianIndex));
+            this.children = new ArrayList<>(allChildren.subList(0, medianIndex + 1));
+
+            List<K> rightEntries = new ArrayList<>(allEntries.subList(medianIndex, allEntries.size()));
+            List<BPlusTreeNode> rightChildren = new ArrayList<>(allChildren.subList(medianIndex + 1, allChildren.size()));
+            return new BPlusTreeNonLeafNode(rightEntries, rightChildren);
         }
 
         @Override
@@ -283,59 +334,6 @@ public class BPlusTree<K extends Comparable<K>, E> {
                 return cur.entries.get(0);
             }
             return findLeafEntry(((BPlusTreeNonLeafNode) cur).children.get(0));
-        }
-
-        private void handleUnderflow(BPlusTreeNode childNode, int childIndex, int entryIndex) {
-            BPlusTreeNode neighbor;
-            if (childIndex > 0 && (neighbor = this.children.get(childIndex - 1)).entries.size() > UNDERFLOW_BOUND) {
-
-                childNode.borrow(neighbor, this.entries.get(reviseEntryIndex(entryIndex)), true);
-                this.entries.set(reviseEntryIndex(entryIndex), childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(childNode) : childNode.entries.get(0));
-
-            } else if (childIndex < this.children.size() - 1 && (neighbor = this.children.get(childIndex + 1)).entries.size() > UNDERFLOW_BOUND) {
-
-                childNode.borrow(neighbor, this.entries.get(entryIndex), false);
-                this.entries.set(entryIndex, childNode.getClass().equals(BPlusTreeNonLeafNode.class) ? findLeafEntry(neighbor) : neighbor.entries.get(0));
-
-            } else {
-
-                if (childIndex > 0) {
-                    // combine current child to left child
-                    neighbor = this.children.get(childIndex - 1);
-                    neighbor.combine(childNode, this.entries.get(reviseEntryIndex(entryIndex)));
-                    this.children.remove(childIndex);
-
-                } else {
-                    // combine right child to current child
-                    neighbor = this.children.get(childIndex + 1);
-                    childNode.combine(neighbor, this.entries.get(entryIndex));
-                    this.children.remove(childIndex + 1);
-                }
-
-                this.entries.remove(reviseEntryIndex(entryIndex));
-
-            }
-        }
-
-        private int reviseEntryIndex(int entryIndex) {
-            return Math.min(this.entries.size() - 1, entryIndex);
-        }
-
-        private int findChildIndex(int entryIndex, K entry) {
-            return (entryIndex == entries.size() || entry.compareTo(entries.get(entryIndex)) < 0) ? entryIndex : entryIndex + 1;
-        }
-
-        private BPlusTreeNonLeafNode split() {
-            int medianIndex = getMedianIndex();
-            List<K> allEntries = entries;
-            List<BPlusTreeNode> allChildren = children;
-
-            this.entries = new ArrayList<>(allEntries.subList(0, medianIndex));
-            this.children = new ArrayList<>(allChildren.subList(0, medianIndex + 1));
-
-            List<K> rightEntries = new ArrayList<>(allEntries.subList(medianIndex, allEntries.size()));
-            List<BPlusTreeNode> rightChildren = new ArrayList<>(allChildren.subList(medianIndex + 1, allChildren.size()));
-            return new BPlusTreeNonLeafNode(rightEntries, rightChildren);
         }
 
         @Override
@@ -373,11 +371,20 @@ public class BPlusTree<K extends Comparable<K>, E> {
         @Override
         public List<E> rangeQuery(K startInclude, K endExclude) {
             List<E> res = new ArrayList<>();
-            int start = findEntryIndex(startInclude);
-            int end = findEntryIndex(endExclude);
-            for (int i = start; i < end; ++i) {
+            int startUpperBound = entryIndexUpperBound(startInclude);
+            if(startUpperBound == 0){
+                return Collections.emptyList();
+            }
+
+            int end = entryIndexUpperBound(endExclude) - 1;
+            if(end >= 0 && entries.get(end) == endExclude){
+                --end;
+            }
+
+            for (int i = startUpperBound - 1; i <= end; ++i) {
                 res.addAll(data.get(i));
             }
+
             BPlusTreeLeafNode nextLeafNode = next;
             while (nextLeafNode != null) {
                 for (int i = 0; i < nextLeafNode.entries.size(); ++i) {
@@ -474,7 +481,7 @@ public class BPlusTree<K extends Comparable<K>, E> {
                 return null;
             }
 
-            int index = findEntryIndex(entry);
+            int index = entryIndexUpperBound(entry);
 
             if (isFull()) {
                 BPlusTreeLeafNode newLeafNode = split();

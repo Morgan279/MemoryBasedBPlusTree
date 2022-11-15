@@ -102,6 +102,38 @@ public class BPlusTreeTest {
         }
     }
 
+    @Test
+    public void chaoticTest() {
+        TreeMap<Integer, Integer> treeMap = new TreeMap<>();
+        BPlusTree<Integer, Integer> bPlusTree = new BPlusTree<>();
+        int times = 100000000;
+        int maxKey = 500;
+        int maxValue = 100000;
+
+        for (int i = 0; i < times; i++) {
+            int key = (int) (Math.random() * maxKey);
+            int value = (int) (Math.random() * maxValue);
+            if (Math.random() > 0.1) {
+                treeMap.put(key, value);
+                if (!bPlusTree.query(key).isEmpty()) {
+                    bPlusTree.remove(key);
+                }
+                bPlusTree.insert(key, value);
+            }
+            if (Math.random() < 0.5) {
+                int deleteKey = (int) (Math.random() * maxKey);
+                Integer deletedValue = treeMap.remove(deleteKey);
+                boolean deleted = bPlusTree.remove(deleteKey);
+                Assertions.assertTrue((deletedValue == null && !deleted) || (deletedValue != null && deleted));
+            }
+
+            int getKey = (int) (Math.random() * maxKey);
+            Integer exceptedValue = treeMap.get(getKey);
+            List<Integer> actualValues = bPlusTree.query(getKey);
+            Assertions.assertTrue((exceptedValue == null && actualValues.isEmpty()) || (exceptedValue != null && actualValues.contains(exceptedValue)));
+        }
+    }
+
     private List<Integer> VITEquivalentQuery(int query) {
         Set<Integer> temp = new HashSet<>();
         for (int dataItem = 0; dataItem < ENTRY_BOUND; ++dataItem) {
