@@ -4,20 +4,23 @@ import java.util.*;
 
 public class BPlusTree<K extends Comparable<K>, E> {
 
-    private final int KEY_UPPER_BOUND;
+    private final int OVERFLOW_BOUND;
 
     private final int UNDERFLOW_BOUND;
 
     private BPlusTreeNode root;
 
     public BPlusTree(int order) {
-        this.KEY_UPPER_BOUND = order - 1;
-        this.UNDERFLOW_BOUND = KEY_UPPER_BOUND / 2;
+        if(order < 3){
+            throw new IllegalArgumentException("The order of BPlus Tree must be greater than or equal to 3");
+        }
+        this.OVERFLOW_BOUND = order - 1;
+        this.UNDERFLOW_BOUND = OVERFLOW_BOUND / 2;
     }
 
     public BPlusTree() {
-        this.KEY_UPPER_BOUND = 8;
-        this.UNDERFLOW_BOUND = KEY_UPPER_BOUND / 2;
+        this.OVERFLOW_BOUND = 8;
+        this.UNDERFLOW_BOUND = OVERFLOW_BOUND / 2;
     }
 
     public void insert(K entry, E value) {
@@ -124,16 +127,14 @@ public class BPlusTree<K extends Comparable<K>, E> {
 
         protected List<K> entries;
 
-        protected boolean isFull() {
-            return entries.size() == KEY_UPPER_BOUND;
-        }
-
         protected boolean isUnderflow() {
             return entries.size() < UNDERFLOW_BOUND;
         }
 
+        protected boolean isOverflow(){ return entries.size() > OVERFLOW_BOUND; }
+
         protected int getMedianIndex() {
-            return KEY_UPPER_BOUND / 2;
+            return OVERFLOW_BOUND / 2;
         }
 
         protected int entryIndexUpperBound(K entry) {
@@ -199,23 +200,9 @@ public class BPlusTree<K extends Comparable<K>, E> {
             if (newChildNode != null) {
                 K newEntry = findLeafEntry(newChildNode);
                 int newEntryIndex = entryIndexUpperBound(newEntry);
-                if (isFull()) {
-                    BPlusTreeNonLeafNode newNonLeafNode = split();
-                    int medianIndex = getMedianIndex();
-                    if (newEntryIndex < medianIndex) {
-                        entries.add(newEntryIndex, newEntry);
-                        children.add(newEntryIndex + 1, newChildNode);
-                    } else {
-                        int rightIndex = newEntryIndex - medianIndex;
-                        newNonLeafNode.entries.add(rightIndex, newEntry);
-                        newNonLeafNode.children.add(rightIndex, newChildNode);
-                    }
-                    newNonLeafNode.entries.remove(0);
-                    return newNonLeafNode;
-                }
-
                 entries.add(newEntryIndex, newEntry);
                 children.add(newEntryIndex + 1, newChildNode);
+                return isOverflow() ? split() : null;
             }
 
             return null;
@@ -300,7 +287,7 @@ public class BPlusTree<K extends Comparable<K>, E> {
             this.entries = new ArrayList<>(allEntries.subList(0, medianIndex));
             this.children = new ArrayList<>(allChildren.subList(0, medianIndex + 1));
 
-            List<K> rightEntries = new ArrayList<>(allEntries.subList(medianIndex, allEntries.size()));
+            List<K> rightEntries = new ArrayList<>(allEntries.subList(medianIndex + 1, allEntries.size()));
             List<BPlusTreeNode> rightChildren = new ArrayList<>(allChildren.subList(medianIndex + 1, allChildren.size()));
             return new BPlusTreeNonLeafNode(rightEntries, rightChildren);
         }
@@ -482,24 +469,9 @@ public class BPlusTree<K extends Comparable<K>, E> {
             }
 
             int index = entryIndexUpperBound(entry);
-
-            if (isFull()) {
-                BPlusTreeLeafNode newLeafNode = split();
-                int medianIndex = getMedianIndex();
-                if (index < medianIndex) {
-                    entries.add(index, entry);
-                    data.add(index, asSet(value));
-                } else {
-                    int rightIndex = index - medianIndex;
-                    newLeafNode.entries.add(rightIndex, entry);
-                    newLeafNode.data.add(rightIndex, asSet(value));
-                }
-                return newLeafNode;
-            }
-
             entries.add(index, entry);
             data.add(index, asSet(value));
-            return null;
+            return isOverflow() ? split() : null;
         }
 
         private BPlusTreeLeafNode split() {

@@ -21,14 +21,15 @@ public class BPlusTreeTest {
         t.insert(0, 10);
         data.sort(Integer::compareTo);
         Assertions.assertEquals(t.toString(), data.toString());
+
         t = new BPlusTree<>(10);
         for (int i = 9; i >= 0; --i) {
             t.insert(i, i);
             data.add(i);
         }
-        List<Integer> root = Arrays.asList(5);
-        List<Integer> leftChild = Arrays.asList(0, 1, 2, 3, 4);
-        List<Integer> rightChild = Arrays.asList(5, 6, 7, 8, 9);
+        List<Integer> root = Arrays.asList(4);
+        List<Integer> leftChild = Arrays.asList(0, 1, 2, 3);
+        List<Integer> rightChild = Arrays.asList(4, 5, 6, 7, 8, 9);
         Assertions.assertEquals(t.toString(), root + "  \n" + leftChild + "  " + rightChild + "  \n");
     }
 
