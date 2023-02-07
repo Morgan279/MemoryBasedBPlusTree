@@ -52,7 +52,7 @@ public class BPlusTreeTest {
         this.load(t);
         for (int i = 0; i < 1000; ++i) {
             int startInclude = ThreadLocalRandom.current().nextInt(ENTRY_BOUND - 1);
-            int endExclude = ThreadLocalRandom.current().nextInt(startInclude, ENTRY_BOUND);
+            int endExclude = ThreadLocalRandom.current().nextInt(startInclude + 1, ENTRY_BOUND);
             Assertions.assertEquals(t.rangeQuery(startInclude, endExclude).toString(), VITRangeQuery(startInclude, endExclude).toString());
         }
     }

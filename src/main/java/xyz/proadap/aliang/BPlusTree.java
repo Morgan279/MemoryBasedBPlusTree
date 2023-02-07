@@ -49,9 +49,14 @@ public class BPlusTree<K extends Comparable<K>, E> {
     }
 
     public List<E> rangeQuery(K startInclude, K endExclude) {
+        if(startInclude.compareTo(endExclude) >= 0){
+            throw new IllegalArgumentException("invalid range");
+        }
+
         if (root == null) {
             return Collections.emptyList();
         }
+
         return root.rangeQuery(startInclude, endExclude);
     }
 
@@ -358,10 +363,7 @@ public class BPlusTree<K extends Comparable<K>, E> {
         @Override
         public List<E> rangeQuery(K startInclude, K endExclude) {
             List<E> res = new ArrayList<>();
-            int startUpperBound = entryIndexUpperBound(startInclude);
-            if(startUpperBound == 0){
-                return Collections.emptyList();
-            }
+            int startUpperBound = Math.max(1, entryIndexUpperBound(startInclude));
 
             int end = entryIndexUpperBound(endExclude) - 1;
             if(end >= 0 && entries.get(end) == endExclude){
